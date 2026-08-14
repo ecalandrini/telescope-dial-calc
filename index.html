@@ -131,18 +131,18 @@
   <h2>Astro Dial Calculator</h2>
   
   <button type="button" id="gps-btn" onclick="fetchGPS()">Sync GPS Location</button>
-  <div id="status" class="status">Initial Mode: Default Location (Vigo)</div>
+  <div id="status" class="status">Initial: Device Time / Standard Meridian Default</div>
 
   <!-- STAR ADVENTURER POLAR SCOPE RETICLE -->
   <h3>Star Adventurer Reticle</h3>
   <div class="grid">
     <div class="metric highlight">
       <div class="metric-label">Polaris Hour Angle</div>
-      <div class="metric-value" id="val-ha">Calculating...</div>
+      <div class="metric-value" id="val-ha">--:--:--</div>
     </div>
     <div class="metric highlight">
       <div class="metric-label">Reticle Clock</div>
-      <div class="metric-value" id="val-reticle-clock">Calculating...</div>
+      <div class="metric-value" id="val-reticle-clock">--:--</div>
     </div>
   </div>
 
@@ -152,7 +152,7 @@
     <div class="metric">
       <div class="metric-label">1. Date Dial</div>
       <div class="metric-value" id="val-sa-date">--- --</div>
-      <div class="note">Set date index</div>
+      <div class="note">Local civil date</div>
     </div>
     <div class="metric">
       <div class="metric-label">2. Time (No DST)</div>
@@ -171,7 +171,7 @@
   <div class="grid">
     <div class="metric highlight">
       <div class="metric-label">Set RA Dial (LST)</div>
-      <div class="metric-value" id="val-lst">Calculating...</div>
+      <div class="metric-value" id="val-lst">--:--:--</div>
     </div>
     <div class="metric highlight">
       <div class="metric-label">Set Dec Dial (Home)</div>
@@ -183,12 +183,12 @@
   <h3>Ephemeris & Coordinates</h3>
   <div class="grid">
     <div class="metric">
-      <div class="metric-label">Standard Meridian</div>
-      <div class="metric-value" id="val-tz">UTC+1 (15°E)</div>
+      <div class="metric-label">Standard Zone</div>
+      <div class="metric-value" id="val-tz">--</div>
     </div>
     <div class="metric">
-      <div class="metric-label">GPS Longitude</div>
-      <div class="metric-value" id="val-lon">8.6900° W</div>
+      <div class="metric-label">Longitude</div>
+      <div class="metric-value" id="val-lon">--</div>
     </div>
     <div class="metric">
       <div class="metric-label">Julian Date (JD)</div>
@@ -202,10 +202,20 @@
 </div>
 
 <script>
-// State variables
-var userLongitude = -8.69; 
-var userLatitude = 42.24;
-var standardTzOffsetHours = 1.0; // Spain/CET Winter Base
+// Auto-detect standard timezone offline from device RTC
+function getDeviceStandardOffset() {
+  try {
+    var janDate = new Date(new Date().getFullYear(), 0, 15);
+    return -janDate.getTimezoneOffset() / 60.0;
+  } catch (e) {
+    return 1.0; // Fallback to UTC+1
+  }
+}
+
+// Global state initialized completely offline from device
+var standardTzOffsetHours = getDeviceStandardOffset();
+var userLongitude = standardTzOffsetHours * 15.0; // Default to central meridian
+var hasGpsFix = false;
 var POLARIS_RA_HOURS = 2.5302; 
 
 function safeSetText(id, text) {
@@ -226,25 +236,18 @@ function fetchGPS() {
   
   navigator.geolocation.getCurrentPosition(
     function(pos) {
-      userLatitude = pos.coords.latitude;
       userLongitude = pos.coords.longitude;
-      
-      // Infer standard winter offset from device locale
-      try {
-        var janDate = new Date(new Date().getFullYear(), 0, 15);
-        standardTzOffsetHours = (-janDate.getTimezoneOffset()) / 60.0;
-      } catch (e) {
-        standardTzOffsetHours = 1.0;
-      }
+      hasGpsFix = true;
+      standardTzOffsetHours = getDeviceStandardOffset();
 
       if (statusEl) {
-        statusEl.textContent = "GPS Locked (±" + Math.round(pos.coords.accuracy) + "m)";
+        statusEl.textContent = "GPS Locked: ±" + Math.round(pos.coords.accuracy) + "m accuracy";
       }
       updateCalculations();
     },
     function(err) {
       if (statusEl) {
-        statusEl.textContent = "GPS Access Denied/Timed out. Using current values.";
+        statusEl.textContent = "GPS Denied/Timeout (" + err.message + "). Using defaults.";
       }
       updateCalculations();
     },
@@ -258,6 +261,7 @@ function calculateAstronomicalTimes(date, lon, tzOffset) {
   var D = date.getUTCDate();
   var utHours = date.getUTCHours() + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600 + date.getUTCMilliseconds() / 3600000;
 
+  // Julian Date calculation
   var calcY = Y;
   var calcM = M;
   if (calcM <= 2) {
@@ -270,28 +274,35 @@ function calculateAstronomicalTimes(date, lon, tzOffset) {
   var JD0 = Math.floor(365.25 * (calcY + 4716)) + Math.floor(30.6001 * (calcM + 1)) + D + B - 1524.5;
   var JD = JD0 + (utHours / 24.0);
 
+  // GMST
   var D_J2000 = JD - 2451545.0;
   var gmstHours = (18.697374558 + 24.06570982441908 * D_J2000) % 24;
   if (gmstHours < 0) gmstHours += 24;
 
+  // LST
   var lonHours = lon / 15.0;
   var lstHours = (gmstHours + lonHours) % 24;
   if (lstHours < 0) lstHours += 24;
 
+  // Polaris Hour Angle
   var haHours = (lstHours - POLARIS_RA_HOURS) % 24;
   if (haHours < 0) haHours += 24;
 
+  // Reticle Clock
   var reticleDecimalHour = (haHours / 2) % 12;
   reticleDecimalHour = (12 - reticleDecimalHour) % 12;
 
+  // Standard Time (No DST)
   var standardHours = (utHours + tzOffset) % 24;
   if (standardHours < 0) standardHours += 24;
 
+  // Longitude Offset: Local Longitude - Standard Time Reference Meridian
   var standardMeridianLon = tzOffset * 15.0;
   var lonOffset = lon - standardMeridianLon;
 
+  // Local Civil Date for Dial Setting (Uses local device calendar day, not UTC)
   var monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  var dateDialStr = monthNames[date.getUTCMonth()] + " " + date.getUTCDate();
+  var localDateDialStr = monthNames[date.getMonth()] + " " + date.getDate();
 
   return {
     JD: JD,
@@ -301,7 +312,7 @@ function calculateAstronomicalTimes(date, lon, tzOffset) {
     reticleDecimalHour: reticleDecimalHour,
     standardHours: standardHours,
     lonOffset: lonOffset,
-    dateDialStr: dateDialStr
+    localDateDialStr: localDateDialStr
   };
 }
 
@@ -337,7 +348,11 @@ function updateCalculations() {
     safeSetText('val-utc', now.toISOString().substring(11, 19));
     safeSetText('val-jd', res.JD.toFixed(5));
     safeSetText('val-gmst', formatHoursToHMS(res.gmstHours));
-    safeSetText('val-lon', Math.abs(userLongitude).toFixed(4) + "° " + (userLongitude >= 0 ? "E" : "W"));
+    
+    var lonDisplay = Math.abs(userLongitude).toFixed(4) + "° " + (userLongitude >= 0 ? "E" : "W");
+    if (!hasGpsFix) lonDisplay += " (Std)";
+    safeSetText('val-lon', lonDisplay);
+    
     safeSetText('val-tz', "UTC" + (standardTzOffsetHours >= 0 ? "+" : "") + standardTzOffsetHours + " (" + (standardTzOffsetHours * 15) + "°" + (standardTzOffsetHours >= 0 ? "E" : "W") + ")");
 
     // Standard Telescope RA (LST)
@@ -346,28 +361,20 @@ function updateCalculations() {
     // Star Adventurer Calculations
     safeSetText('val-ha', formatHoursToHMS(res.haHours));
     safeSetText('val-reticle-clock', formatDecimalToClock(res.reticleDecimalHour));
-    safeSetText('val-sa-date', res.dateDialStr);
+    safeSetText('val-sa-date', res.localDateDialStr);
     safeSetText('val-std-time', formatHoursToHM(res.standardHours));
     
-    // Explicit E/W for Longitude Offset
     var offsetAbs = Math.abs(res.lonOffset).toFixed(2);
     var offsetDir = res.lonOffset <= 0 ? 'W' : 'E';
     safeSetText('val-lon-offset', offsetAbs + "° " + offsetDir);
   } catch (err) {
-    console.error("Calculation render error:", err);
+    console.error("Render loop error:", err);
   }
 }
 
-// Guarantee execution on page load
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', function() {
-    updateCalculations();
-    setInterval(updateCalculations, 1000);
-  });
-} else {
-  updateCalculations();
-  setInterval(updateCalculations, 1000);
-}
+// Run immediately
+updateCalculations();
+setInterval(updateCalculations, 1000);
 </script>
 
 </body>
