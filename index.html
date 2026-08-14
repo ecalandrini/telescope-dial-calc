@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Telescope Dial & Sidereal Calculator</title>
+  <style>
+    :root {
+      --bg: #0d1117;
+      --card-bg: #161b22;
+      --border: #30363d;
+      --text: #c9d1d9;
+      --accent: #58a6ff;
+      --accent-green: #3fb950;
+      --danger: #f85149;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      padding: 1.5rem 1rem;
+      margin: 0;
+    }
+    .card {
+      background: var(--card-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1.5rem;
+      max-width: 520px;
+      width: 100%;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+    }
+    h2 { margin-top: 0; color: #fff; border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; font-size: 1.25rem; }
+    h3 { color: var(--accent); margin: 1.25rem 0 0.5rem; font-size: 1rem; text-transform: uppercase; letter-spacing: 0.05em; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1rem; }
+    .metric { background: #0b0e14; border: 1px solid var(--border); border-radius: 6px; padding: 0.75rem; }
+    .metric-label { font-size: 0.75rem; color: #8b949e; text-transform: uppercase; margin-bottom: 0.25rem; }
+    .metric-value { font-size: 1.15rem; font-weight: 600; color: #f0f6fc; font-family: monospace; }
+    .highlight { border-color: var(--accent); }
+    .highlight .metric-value { color: var(--accent); font-size: 1.35rem; }
+    button {
+      background: var(--accent);
+      color: #000;
+      font-weight: 600;
+      border: none;
+      border-radius: 6px;
+      padding: 0.75rem 1rem;
+      width: 100%;
+      cursor: pointer;
+      font-size: 0.95rem;
+    }
+    button:hover { opacity: 0.9; }
+    .status { font-size: 0.8rem; color: #8b949e; margin-top: 0.5rem; text-align: center; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h2>Telescope Setting Circle Calculator</h2>
+  
+  <button id="gps-btn" onclick="fetchGPS()">Sync GPS Location</button>
+  <div id="status" class="status">GPS: Pending user permission</div>
+
+  <h3>Target Dial Settings (Home Position)</h3>
+  <div class="grid">
+    <div class="metric highlight">
+      <div class="metric-label">Set RA Dial (LST)</div>
+      <div class="metric-value" id="val-lst">--:--:--</div>
+    </div>
+    <div class="metric highlight">
+      <div class="metric-label">Set Dec Dial (Home/Pole)</div>
+      <div class="metric-value">+90° 00'</div>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="metric">
+      <div class="metric-label">Polaris RA (J2000)</div>
+      <div class="metric-value">02h 31m 49s</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Polaris Dec (J2000)</div>
+      <div class="metric-value">+89° 15' 51"</div>
+    </div>
+  </div>
+
+  <h3>Astronomical & Time Data</h3>
+  <div class="grid">
+    <div class="metric">
+      <div class="metric-label">UTC Time</div>
+      <div class="metric-value" id="val-utc">--:--:--</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Longitude</div>
+      <div class="metric-value" id="val-lon">0.0000°</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">Julian Date (JD)</div>
+      <div class="metric-value" id="val-jd">-------.------</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">GMST</div>
+      <div class="metric-value" id="val-gmst">--:--:--</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let userLongitude = 0.0;
+let userLatitude = 0.0;
+
+function fetchGPS() {
+  const statusEl = document.getElementById('status');
+  if (!navigator.geolocation) {
+    statusEl.textContent = "GPS Error: Geolocation not supported by this browser.";
+    statusEl.style.color = "var(--danger)";
+    return;
+  }
+  statusEl.textContent = "Acquiring GPS fix...";
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      userLatitude = pos.coords.latitude;
+      userLongitude = pos.coords.longitude;
+      document.getElementById('val-lon').textContent = 
+        `${Math.abs(userLongitude).toFixed(4)}° ${userLongitude >= 0 ? 'E' : 'W'}`;
+      statusEl.textContent = `GPS Locked: ±${Math.round(pos.coords.accuracy)}m accuracy`;
+      statusEl.style.color = "var(--accent-green)";
+      updateCalculations();
+    },
+    (err) => {
+      statusEl.textContent = `GPS Error: ${err.message}`;
+      statusEl.style.color = "var(--danger)";
+    },
+    { enableHighAccuracy: true, timeout: 10000 }
+  );
+}
+
+function calculateAstronomicalTimes(date, lon) {
+  // Extract UTC components
+  const Y = date.getUTCFullYear();
+  let M = date.getUTCMonth() + 1;
+  const D = date.getUTCDate();
+  const utHours = date.getUTCHours() + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600 + date.getUTCMilliseconds() / 3600000;
+
+  // Julian Date calculation
+  let calcY = Y;
+  let calcM = M;
+  if (calcM <= 2) {
+    calcY -= 1;
+    calcM += 12;
+  }
+
+  const A = Math.floor(calcY / 100);
+  const B = 2 - A + Math.floor(A / 4);
+  const JD0 = Math.floor(365.25 * (calcY + 4716)) + Math.floor(30.6001 * (calcM + 1)) + D + B - 1524.5;
+  const JD = JD0 + (utHours / 24.0);
+
+  // GMST calculation (USNO approximation formula)
+  const D_J2000 = JD - 2451545.0;
+  let gmstHours = (18.697374558 + 24.06570982441908 * D_J2000) % 24;
+  if (gmstHours < 0) gmstHours += 24;
+
+  // Local Sidereal Time (LST)
+  const lonHours = lon / 15.0;
+  let lstHours = (gmstHours + lonHours) % 24;
+  if (lstHours < 0) lstHours += 24;
+
+  return { JD, gmstHours, lstHours, utHours };
+}
+
+function formatHoursToHMS(decimalHours) {
+  const totalSeconds = Math.round(decimalHours * 3600);
+  const h = Math.floor(totalSeconds / 3600) % 24;
+  const m = Math.floor((totalSeconds % 3600) / 60);
+  const s = totalSeconds % 60;
+  return `${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
+}
+
+function updateCalculations() {
+  const now = new Date();
+  const res = calculateAstronomicalTimes(now, userLongitude);
+
+  document.getElementById('val-utc').textContent = now.toISOString().substring(11, 19);
+  document.getElementById('val-jd').textContent = res.JD.toFixed(5);
+  document.getElementById('val-gmst').textContent = formatHoursToHMS(res.gmstHours);
+  document.getElementById('val-lst').textContent = formatHoursToHMS(res.lstHours);
+}
+
+// Update ticker every second
+setInterval(updateCalculations, 1000);
+updateCalculations();
+</script>
+
+</body>
+</html>
