@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Astro Dial Calculator (Night Mode)</title>
+  <title>Astro Dial Calculator</title>
   <style>
     :root {
       --bg: #000000;
@@ -24,7 +24,7 @@
       color: var(--text);
       display: flex;
       justify-content: center;
-      padding: 1.25rem 0.75rem;
+      padding: 1rem 0.5rem;
       margin: 0;
     }
     .card {
@@ -32,12 +32,13 @@
       border: 1px solid var(--border);
       border-radius: 8px;
       padding: 1.25rem;
-      max-width: 520px;
+      max-width: 500px;
       width: 100%;
+      box-sizing: border-box;
       box-shadow: 0 0 15px rgba(255, 0, 0, 0.05);
     }
     h2 {
-      margin-top: 0;
+      margin: 0 0 0.75rem 0;
       color: var(--text-bright);
       border-bottom: 1px solid var(--border);
       padding-bottom: 0.5rem;
@@ -47,7 +48,7 @@
     }
     h3 {
       color: var(--text-bright);
-      margin: 1.2rem 0 0.5rem;
+      margin: 1.1rem 0 0.5rem 0;
       font-size: 0.85rem;
       text-transform: uppercase;
       letter-spacing: 0.08em;
@@ -55,33 +56,35 @@
     .grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 0.6rem;
-      margin-bottom: 0.75rem;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
     }
     .grid-3 {
       display: grid;
       grid-template-columns: 1fr 1fr 1fr;
-      gap: 0.6rem;
-      margin-bottom: 0.75rem;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
     }
     .metric {
       background: var(--panel-bg);
       border: 1px solid var(--border);
       border-radius: 6px;
-      padding: 0.65rem 0.75rem;
+      padding: 0.5rem 0.6rem;
+      box-sizing: border-box;
     }
     .metric-label {
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       color: var(--text-muted);
       text-transform: uppercase;
-      margin-bottom: 0.25rem;
+      margin-bottom: 0.2rem;
       letter-spacing: 0.03em;
     }
     .metric-value {
-      font-size: 1.05rem;
+      font-size: 1rem;
       font-weight: 700;
       color: var(--text);
       font-family: monospace;
+      white-space: nowrap;
     }
     .highlight {
       border-color: var(--border-bright);
@@ -89,7 +92,7 @@
     }
     .highlight .metric-value {
       color: var(--accent);
-      font-size: 1.25rem;
+      font-size: 1.15rem;
       text-shadow: 0 0 4px rgba(255, 0, 0, 0.4);
     }
     button {
@@ -104,6 +107,7 @@
       font-size: 0.9rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;
+      box-sizing: border-box;
     }
     button:active { background: var(--btn-active); }
     .status {
@@ -114,31 +118,31 @@
       font-family: monospace;
     }
     .note {
-      font-size: 0.68rem;
+      font-size: 0.65rem;
       color: var(--text-muted);
       line-height: 1.2;
-      margin-top: 0.3rem;
+      margin-top: 0.25rem;
     }
   </style>
 </head>
 <body>
 
 <div class="card">
-  <h2>Astro Dial Calculator (Night)</h2>
+  <h2>Astro Dial Calculator</h2>
   
-  <button id="gps-btn" onclick="fetchGPS()">Sync GPS Location</button>
-  <div id="status" class="status">GPS: Using default / device coordinates</div>
+  <button type="button" id="gps-btn" onclick="fetchGPS()">Sync GPS Location</button>
+  <div id="status" class="status">Initial Mode: Default Location (Vigo)</div>
 
   <!-- STAR ADVENTURER POLAR SCOPE RETICLE -->
   <h3>Star Adventurer Reticle</h3>
   <div class="grid">
     <div class="metric highlight">
       <div class="metric-label">Polaris Hour Angle</div>
-      <div class="metric-value" id="val-ha">--:--:--</div>
+      <div class="metric-value" id="val-ha">Calculating...</div>
     </div>
     <div class="metric highlight">
       <div class="metric-label">Reticle Clock</div>
-      <div class="metric-value" id="val-reticle-clock">--:--</div>
+      <div class="metric-value" id="val-reticle-clock">Calculating...</div>
     </div>
   </div>
 
@@ -157,17 +161,17 @@
     </div>
     <div class="metric">
       <div class="metric-label">3. Lon Offset</div>
-      <div class="metric-value" id="val-lon-offset">0.0°</div>
+      <div class="metric-value" id="val-lon-offset">--.-°</div>
       <div class="note">Small scale</div>
     </div>
   </div>
 
   <!-- STANDARD EQUATORIAL (EQ) DIALS -->
-  <h3>Standard Equatorial (EQ) Dials (Home)</h3>
+  <h3>Standard EQ Mount Dials (Home)</h3>
   <div class="grid">
     <div class="metric highlight">
       <div class="metric-label">Set RA Dial (LST)</div>
-      <div class="metric-value" id="val-lst">--:--:--</div>
+      <div class="metric-value" id="val-lst">Calculating...</div>
     </div>
     <div class="metric highlight">
       <div class="metric-label">Set Dec Dial (Home)</div>
@@ -179,12 +183,12 @@
   <h3>Ephemeris & Coordinates</h3>
   <div class="grid">
     <div class="metric">
-      <div class="metric-label">Standard Timezone</div>
-      <div class="metric-value" id="val-tz">UTC+1</div>
+      <div class="metric-label">Standard Meridian</div>
+      <div class="metric-value" id="val-tz">UTC+1 (15°E)</div>
     </div>
     <div class="metric">
       <div class="metric-label">GPS Longitude</div>
-      <div class="metric-value" id="val-lon">0.0000°</div>
+      <div class="metric-value" id="val-lon">8.6900° W</div>
     </div>
     <div class="metric">
       <div class="metric-label">Julian Date (JD)</div>
@@ -198,152 +202,172 @@
 </div>
 
 <script>
-let userLongitude = -8.69; 
-let userLatitude = 42.24;
-let standardTzOffsetHours = 1.0; 
-const POLARIS_RA_HOURS = 2.5302; 
+// State variables
+var userLongitude = -8.69; 
+var userLatitude = 42.24;
+var standardTzOffsetHours = 1.0; // Spain/CET Winter Base
+var POLARIS_RA_HOURS = 2.5302; 
 
-// Extract winter standard offset directly from the device's locale
-function resolveDeviceStandardOffset() {
-  try {
-    // Check January standard time offset (winter for Northern Hemisphere)
-    const janDate = new Date(new Date().getFullYear(), 0, 15);
-    const offsetMinutes = -janDate.getTimezoneOffset();
-    return offsetMinutes / 60.0;
-  } catch (e) {
-    return 1.0; // Default fallback to UTC+1
+function safeSetText(id, text) {
+  var el = document.getElementById(id);
+  if (el) {
+    el.textContent = text;
   }
 }
 
 function fetchGPS() {
-  const statusEl = document.getElementById('status');
+  var statusEl = document.getElementById('status');
   if (!navigator.geolocation) {
-    statusEl.textContent = "GPS Error: Geolocation unavailable";
+    if (statusEl) statusEl.textContent = "GPS Error: Geolocation unavailable";
     return;
   }
 
-  statusEl.textContent = "Acquiring GPS fix...";
+  if (statusEl) statusEl.textContent = "Acquiring GPS fix...";
+  
   navigator.geolocation.getCurrentPosition(
-    (pos) => {
+    function(pos) {
       userLatitude = pos.coords.latitude;
       userLongitude = pos.coords.longitude;
-      standardTzOffsetHours = resolveDeviceStandardOffset();
       
-      statusEl.textContent = `GPS Locked (±${Math.round(pos.coords.accuracy)}m)`;
+      // Infer standard winter offset from device locale
+      try {
+        var janDate = new Date(new Date().getFullYear(), 0, 15);
+        standardTzOffsetHours = (-janDate.getTimezoneOffset()) / 60.0;
+      } catch (e) {
+        standardTzOffsetHours = 1.0;
+      }
+
+      if (statusEl) {
+        statusEl.textContent = "GPS Locked (±" + Math.round(pos.coords.accuracy) + "m)";
+      }
       updateCalculations();
     },
-    (err) => {
-      statusEl.textContent = `GPS Error: ${err.message}. Using default.`;
+    function(err) {
+      if (statusEl) {
+        statusEl.textContent = "GPS Access Denied/Timed out. Using current values.";
+      }
       updateCalculations();
     },
-    { enableHighAccuracy: true, timeout: 10000 }
+    { enableHighAccuracy: true, timeout: 8000 }
   );
 }
 
 function calculateAstronomicalTimes(date, lon, tzOffset) {
-  const Y = date.getUTCFullYear();
-  let M = date.getUTCMonth() + 1;
-  const D = date.getUTCDate();
-  const utHours = date.getUTCHours() + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600 + date.getUTCMilliseconds() / 3600000;
+  var Y = date.getUTCFullYear();
+  var M = date.getUTCMonth() + 1;
+  var D = date.getUTCDate();
+  var utHours = date.getUTCHours() + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600 + date.getUTCMilliseconds() / 3600000;
 
-  // Julian Date calculation
-  let calcY = Y;
-  let calcM = M;
+  var calcY = Y;
+  var calcM = M;
   if (calcM <= 2) {
     calcY -= 1;
     calcM += 12;
   }
 
-  const A = Math.floor(calcY / 100);
-  const B = 2 - A + Math.floor(A / 4);
-  const JD0 = Math.floor(365.25 * (calcY + 4716)) + Math.floor(30.6001 * (calcM + 1)) + D + B - 1524.5;
-  const JD = JD0 + (utHours / 24.0);
+  var A = Math.floor(calcY / 100);
+  var B = 2 - A + Math.floor(A / 4);
+  var JD0 = Math.floor(365.25 * (calcY + 4716)) + Math.floor(30.6001 * (calcM + 1)) + D + B - 1524.5;
+  var JD = JD0 + (utHours / 24.0);
 
-  // GMST
-  const D_J2000 = JD - 2451545.0;
-  let gmstHours = (18.697374558 + 24.06570982441908 * D_J2000) % 24;
+  var D_J2000 = JD - 2451545.0;
+  var gmstHours = (18.697374558 + 24.06570982441908 * D_J2000) % 24;
   if (gmstHours < 0) gmstHours += 24;
 
-  // LST
-  const lonHours = lon / 15.0;
-  let lstHours = (gmstHours + lonHours) % 24;
+  var lonHours = lon / 15.0;
+  var lstHours = (gmstHours + lonHours) % 24;
   if (lstHours < 0) lstHours += 24;
 
-  // Polaris Hour Angle
-  let haHours = (lstHours - POLARIS_RA_HOURS) % 24;
+  var haHours = (lstHours - POLARIS_RA_HOURS) % 24;
   if (haHours < 0) haHours += 24;
 
-  // Reticle Clock
-  let reticleDecimalHour = (haHours / 2) % 12;
+  var reticleDecimalHour = (haHours / 2) % 12;
   reticleDecimalHour = (12 - reticleDecimalHour) % 12;
 
-  // Standard Time (Civil standard time, UTC + tzOffset, strictly without DST)
-  let standardHours = (utHours + tzOffset) % 24;
+  var standardHours = (utHours + tzOffset) % 24;
   if (standardHours < 0) standardHours += 24;
 
-  // Exact Longitude Offset: Local Longitude - Standard Time Reference Meridian
-  const standardMeridianLon = tzOffset * 15.0;
-  const lonOffset = lon - standardMeridianLon;
+  var standardMeridianLon = tzOffset * 15.0;
+  var lonOffset = lon - standardMeridianLon;
 
-  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const dateDialStr = `${monthNames[date.getUTCMonth()]} ${date.getUTCDate()}`;
+  var monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  var dateDialStr = monthNames[date.getUTCMonth()] + " " + date.getUTCDate();
 
-  return { JD, gmstHours, lstHours, haHours, reticleDecimalHour, standardHours, lonOffset, dateDialStr };
+  return {
+    JD: JD,
+    gmstHours: gmstHours,
+    lstHours: lstHours,
+    haHours: haHours,
+    reticleDecimalHour: reticleDecimalHour,
+    standardHours: standardHours,
+    lonOffset: lonOffset,
+    dateDialStr: dateDialStr
+  };
 }
 
 function formatHoursToHMS(decimalHours) {
-  const totalSeconds = Math.round(decimalHours * 3600);
-  const h = Math.floor(totalSeconds / 3600) % 24;
-  const m = Math.floor((totalSeconds % 3600) / 60);
-  const s = totalSeconds % 60;
-  return `${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
+  var totalSeconds = Math.round(decimalHours * 3600);
+  var h = Math.floor(totalSeconds / 3600) % 24;
+  var m = Math.floor((totalSeconds % 3600) / 60);
+  var s = totalSeconds % 60;
+  return (h < 10 ? "0" + h : h) + "h " + (m < 10 ? "0" + m : m) + "m " + (s < 10 ? "0" + s : s) + "s";
 }
 
 function formatHoursToHM(decimalHours) {
-  const totalMinutes = Math.round(decimalHours * 60);
-  const h = Math.floor(totalMinutes / 60) % 24;
-  const m = totalMinutes % 60;
-  return `${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m`;
+  var totalMinutes = Math.round(decimalHours * 60);
+  var h = Math.floor(totalMinutes / 60) % 24;
+  var m = totalMinutes % 60;
+  return (h < 10 ? "0" + h : h) + "h " + (m < 10 ? "0" + m : m) + "m";
 }
 
 function formatDecimalToClock(decimalHours12) {
-  const totalMinutes = Math.round(decimalHours12 * 60);
-  let h = Math.floor(totalMinutes / 60) % 12;
+  var totalMinutes = Math.round(decimalHours12 * 60);
+  var h = Math.floor(totalMinutes / 60) % 12;
   if (h === 0) h = 12;
-  const m = totalMinutes % 60;
-  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+  var m = totalMinutes % 60;
+  return (h < 10 ? "0" + h : h) + ":" + (m < 10 ? "0" + m : m);
 }
 
 function updateCalculations() {
-  const now = new Date();
-  const res = calculateAstronomicalTimes(now, userLongitude, standardTzOffsetHours);
+  try {
+    var now = new Date();
+    var res = calculateAstronomicalTimes(now, userLongitude, standardTzOffsetHours);
 
-  // Raw Ephemeris
-  document.getElementById('val-utc').textContent = now.toISOString().substring(11, 19);
-  document.getElementById('val-jd').textContent = res.JD.toFixed(5);
-  document.getElementById('val-gmst').textContent = formatHoursToHMS(res.gmstHours);
-  document.getElementById('val-lon').textContent = 
-    `${Math.abs(userLongitude).toFixed(4)}° ${userLongitude >= 0 ? 'E' : 'W'}`;
-  document.getElementById('val-tz').textContent = `UTC${standardTzOffsetHours >= 0 ? '+' : ''}${standardTzOffsetHours}`;
+    // Ephemeris
+    safeSetText('val-utc', now.toISOString().substring(11, 19));
+    safeSetText('val-jd', res.JD.toFixed(5));
+    safeSetText('val-gmst', formatHoursToHMS(res.gmstHours));
+    safeSetText('val-lon', Math.abs(userLongitude).toFixed(4) + "° " + (userLongitude >= 0 ? "E" : "W"));
+    safeSetText('val-tz', "UTC" + (standardTzOffsetHours >= 0 ? "+" : "") + standardTzOffsetHours + " (" + (standardTzOffsetHours * 15) + "°" + (standardTzOffsetHours >= 0 ? "E" : "W") + ")");
 
-  // Standard Telescope (EQ Home)
-  document.getElementById('val-lst').textContent = formatHoursToHMS(res.lstHours);
+    // Standard Telescope RA (LST)
+    safeSetText('val-lst', formatHoursToHMS(res.lstHours));
 
-  // Star Adventurer Reticle & Dials
-  document.getElementById('val-ha').textContent = formatHoursToHMS(res.haHours);
-  document.getElementById('val-reticle-clock').textContent = formatDecimalToClock(res.reticleDecimalHour);
-  document.getElementById('val-sa-date').textContent = res.dateDialStr;
-  document.getElementById('val-std-time').textContent = formatHoursToHM(res.standardHours);
-  
-  const offsetAbs = Math.abs(res.lonOffset).toFixed(2);
-  const offsetDir = res.lonOffset <= 0 ? 'W' : 'E';
-  document.getElementById('val-lon-offset').textContent = `${offsetAbs}° ${offsetDir}`;
+    // Star Adventurer Calculations
+    safeSetText('val-ha', formatHoursToHMS(res.haHours));
+    safeSetText('val-reticle-clock', formatDecimalToClock(res.reticleDecimalHour));
+    safeSetText('val-sa-date', res.dateDialStr);
+    safeSetText('val-std-time', formatHoursToHM(res.standardHours));
+    
+    // Explicit E/W for Longitude Offset
+    var offsetAbs = Math.abs(res.lonOffset).toFixed(2);
+    var offsetDir = res.lonOffset <= 0 ? 'W' : 'E';
+    safeSetText('val-lon-offset', offsetAbs + "° " + offsetDir);
+  } catch (err) {
+    console.error("Calculation render error:", err);
+  }
 }
 
-// Initial setup
-standardTzOffsetHours = resolveDeviceStandardOffset();
-setInterval(updateCalculations, 1000);
-updateCalculations();
+// Guarantee execution on page load
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', function() {
+    updateCalculations();
+    setInterval(updateCalculations, 1000);
+  });
+} else {
+  updateCalculations();
+  setInterval(updateCalculations, 1000);
+}
 </script>
 
 </body>
