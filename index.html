@@ -6,7 +6,6 @@
   <title>Astro Dial Calculator (Night Mode)</title>
   <style>
     :root {
-      /* Pure Astronomical Red-Shift Palette */
       --bg: #000000;
       --card-bg: #0d0000;
       --panel-bg: #140000;
@@ -59,6 +58,12 @@
       gap: 0.6rem;
       margin-bottom: 0.75rem;
     }
+    .grid-3 {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 0.6rem;
+      margin-bottom: 0.75rem;
+    }
     .metric {
       background: var(--panel-bg);
       border: 1px solid var(--border);
@@ -73,7 +78,7 @@
       letter-spacing: 0.03em;
     }
     .metric-value {
-      font-size: 1.1rem;
+      font-size: 1.05rem;
       font-weight: 700;
       color: var(--text);
       font-family: monospace;
@@ -100,9 +105,7 @@
       text-transform: uppercase;
       letter-spacing: 0.05em;
     }
-    button:active {
-      background: var(--btn-active);
-    }
+    button:active { background: var(--btn-active); }
     .status {
       font-size: 0.75rem;
       color: var(--text-muted);
@@ -111,9 +114,9 @@
       font-family: monospace;
     }
     .note {
-      font-size: 0.7rem;
+      font-size: 0.68rem;
       color: var(--text-muted);
-      line-height: 1.3;
+      line-height: 1.2;
       margin-top: 0.3rem;
     }
   </style>
@@ -126,33 +129,40 @@
   <button id="gps-btn" onclick="fetchGPS()">Sync GPS Location</button>
   <div id="status" class="status">GPS: Pending user permission</div>
 
-  <!-- STAR ADVENTURER BLOCK -->
-  <h3>Star Adventurer Polar Alignment</h3>
+  <!-- STAR ADVENTURER POLAR SCOPE RETICLE -->
+  <h3>Star Adventurer Reticle</h3>
   <div class="grid">
     <div class="metric highlight">
-      <div class="metric-label">Polaris Hour Angle (HA)</div>
+      <div class="metric-label">Polaris Hour Angle</div>
       <div class="metric-value" id="val-ha">--:--:--</div>
     </div>
     <div class="metric highlight">
-      <div class="metric-label">Reticle Clock Position</div>
+      <div class="metric-label">Reticle Clock</div>
       <div class="metric-value" id="val-reticle-clock">--:--</div>
     </div>
   </div>
 
-  <div class="grid">
+  <!-- STAR ADVENTURER PHYSICAL DIAL SETTINGS -->
+  <h3>Star Adventurer Mechanical Dials</h3>
+  <div class="grid-3">
     <div class="metric">
-      <div class="metric-label">Std Time (No DST)</div>
-      <div class="metric-value" id="val-std-time">--:--:--</div>
-      <div class="note">Align with date ring</div>
+      <div class="metric-label">1. Date Dial</div>
+      <div class="metric-value" id="val-sa-date">--- --</div>
+      <div class="note">Set date index</div>
     </div>
     <div class="metric">
-      <div class="metric-label">Longitude Offset</div>
-      <div class="metric-value" id="val-lon-offset">0.00°</div>
-      <div class="note">Small graduated scale</div>
+      <div class="metric-label">2. Time (No DST)</div>
+      <div class="metric-value" id="val-std-time">--:--</div>
+      <div class="note">Align with date</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">3. Lon Offset</div>
+      <div class="metric-value" id="val-lon-offset">0.0°</div>
+      <div class="note">Small scale</div>
     </div>
   </div>
 
-  <!-- STANDARD EQUATORIAL MOUNT BLOCK -->
+  <!-- STANDARD EQUATORIAL (EQ) DIALS -->
   <h3>Standard Equatorial (EQ) Dials (Home)</h3>
   <div class="grid">
     <div class="metric highlight">
@@ -165,7 +175,7 @@
     </div>
   </div>
 
-  <!-- RAW ASTRONOMICAL DATA -->
+  <!-- RAW EPHEMERIS / GPS -->
   <h3>Ephemeris & Coordinates</h3>
   <div class="grid">
     <div class="metric">
@@ -221,6 +231,7 @@ function calculateAstronomicalTimes(date, lon) {
   const D = date.getUTCDate();
   const utHours = date.getUTCHours() + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600 + date.getUTCMilliseconds() / 3600000;
 
+  // Julian Date calculation
   let calcY = Y;
   let calcM = M;
   if (calcM <= 2) {
@@ -233,28 +244,38 @@ function calculateAstronomicalTimes(date, lon) {
   const JD0 = Math.floor(365.25 * (calcY + 4716)) + Math.floor(30.6001 * (calcM + 1)) + D + B - 1524.5;
   const JD = JD0 + (utHours / 24.0);
 
+  // GMST
   const D_J2000 = JD - 2451545.0;
   let gmstHours = (18.697374558 + 24.06570982441908 * D_J2000) % 24;
   if (gmstHours < 0) gmstHours += 24;
 
+  // LST
   const lonHours = lon / 15.0;
   let lstHours = (gmstHours + lonHours) % 24;
   if (lstHours < 0) lstHours += 24;
 
+  // Polaris Hour Angle (HA = LST - RA)
   let haHours = (lstHours - POLARIS_RA_HOURS) % 24;
   if (haHours < 0) haHours += 24;
 
+  // Reticle Clock Position (12h format, inverted view)
   let reticleDecimalHour = (haHours / 2) % 12;
   reticleDecimalHour = (12 - reticleDecimalHour) % 12;
 
+  // Standard Time (No DST)
   const approxTimezoneOffsetHours = Math.round(lon / 15.0);
   let standardHours = (utHours + approxTimezoneOffsetHours) % 24;
   if (standardHours < 0) standardHours += 24;
 
+  // Longitude Offset: Local Longitude - Standard Meridian Longitude
   const standardMeridianLon = approxTimezoneOffsetHours * 15.0;
   const lonOffset = lon - standardMeridianLon;
 
-  return { JD, gmstHours, lstHours, haHours, reticleDecimalHour, standardHours, lonOffset };
+  // Formatted Date for Date Dial (e.g., Aug 15)
+  const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+  const dateDialStr = `${monthNames[date.getMonth()]} ${date.getDate()}`;
+
+  return { JD, gmstHours, lstHours, haHours, reticleDecimalHour, standardHours, lonOffset, dateDialStr };
 }
 
 function formatHoursToHMS(decimalHours) {
@@ -263,6 +284,13 @@ function formatHoursToHMS(decimalHours) {
   const m = Math.floor((totalSeconds % 3600) / 60);
   const s = totalSeconds % 60;
   return `${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m ${String(s).padStart(2, '0')}s`;
+}
+
+function formatHoursToHM(decimalHours) {
+  const totalMinutes = Math.round(decimalHours * 60);
+  const h = Math.floor(totalMinutes / 60) % 24;
+  const m = totalMinutes % 60;
+  return `${String(h).padStart(2, '0')}h ${String(m).padStart(2, '0')}m`;
 }
 
 function formatDecimalToClock(decimalHours12) {
@@ -277,15 +305,21 @@ function updateCalculations() {
   const now = new Date();
   const res = calculateAstronomicalTimes(now, userLongitude);
 
+  // Raw Ephemeris
   document.getElementById('val-utc').textContent = now.toISOString().substring(11, 19);
   document.getElementById('val-jd').textContent = res.JD.toFixed(5);
   document.getElementById('val-gmst').textContent = formatHoursToHMS(res.gmstHours);
+
+  // Standard Telescope (EQ Home)
   document.getElementById('val-lst').textContent = formatHoursToHMS(res.lstHours);
+
+  // Star Adventurer Reticle & Dials
   document.getElementById('val-ha').textContent = formatHoursToHMS(res.haHours);
   document.getElementById('val-reticle-clock').textContent = formatDecimalToClock(res.reticleDecimalHour);
-  document.getElementById('val-std-time').textContent = formatHoursToHMS(res.standardHours);
+  document.getElementById('val-sa-date').textContent = res.dateDialStr;
+  document.getElementById('val-std-time').textContent = formatHoursToHM(res.standardHours);
   document.getElementById('val-lon-offset').textContent = 
-    `${Math.abs(res.lonOffset).toFixed(2)}° ${res.lonOffset >= 0 ? 'E' : 'W'}`;
+    `${Math.abs(res.lonOffset).toFixed(1)}° ${res.lonOffset >= 0 ? 'E' : 'W'}`;
 }
 
 setInterval(updateCalculations, 1000);
