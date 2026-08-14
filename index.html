@@ -147,23 +147,23 @@
     </div>
   </div>
 
-  <!-- STAR ADVENTURER PHYSICAL DIAL SETTINGS -->
+  <!-- STAR ADVENTURER PHYSICAL DIAL SETTINGS (ORDERED: LON OFFSET -> DATE -> TIME) -->
   <h3>Star Adventurer Mechanical Dials</h3>
   <div class="grid-3">
     <div class="metric">
-      <div class="metric-label">1. Date Dial</div>
-      <div class="metric-value" id="val-sa-date">--- --</div>
-      <div class="note">Local civil date</div>
-    </div>
-    <div class="metric">
-      <div class="metric-label">2. Time (No DST)</div>
-      <div class="metric-value" id="val-std-time">--:--</div>
-      <div class="note">Align with date</div>
-    </div>
-    <div class="metric">
-      <div class="metric-label">3. Lon Offset</div>
+      <div class="metric-label">1. Lon Offset</div>
       <div class="metric-value" id="val-lon-offset">--.-°</div>
-      <div class="note">Small scale</div>
+      <div class="note">Set & lock scale</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">2. Date Dial</div>
+      <div class="metric-value" id="val-sa-date">--- --</div>
+      <div class="note">Find date line</div>
+    </div>
+    <div class="metric">
+      <div class="metric-label">3. Time (No DST)</div>
+      <div class="metric-value" id="val-std-time">--:--</div>
+      <div class="note">Match to date</div>
     </div>
   </div>
 
@@ -216,7 +216,7 @@ function getDeviceStandardOffset() {
 var standardTzOffsetHours = getDeviceStandardOffset();
 var userLongitude = standardTzOffsetHours * 15.0; 
 var hasGpsFix = false;
-var atomicDeltaMs = 0; // Offset between atomic server and local clock
+var atomicDeltaMs = 0;
 var isAtomicSynced = false;
 var POLARIS_RA_HOURS = 2.5302; 
 
@@ -225,7 +225,6 @@ function safeSetText(id, text) {
   if (el) el.textContent = text;
 }
 
-// Get the current synchronized time (Atomic or RTC)
 function getEffectiveDate() {
   var now = new Date();
   if (isAtomicSynced) {
@@ -262,10 +261,8 @@ function syncAll() {
   var statusEl = document.getElementById('status');
   if (statusEl) statusEl.textContent = "Syncing GPS & Atomic Clock...";
 
-  // 1. Trigger Atomic Clock Sync
   var atomicPromise = syncAtomicTime();
 
-  // 2. Trigger GPS Geolocation
   if (!navigator.geolocation) {
     if (statusEl) statusEl.textContent = "GPS Unavailable. Time sync in progress...";
   } else {
@@ -388,15 +385,15 @@ function updateCalculations() {
     // Standard Telescope RA (LST)
     safeSetText('val-lst', formatHoursToHMS(res.lstHours));
 
-    // Star Adventurer Calculations
-    safeSetText('val-ha', formatHoursToHMS(res.haHours));
-    safeSetText('val-reticle-clock', formatDecimalToClock(res.reticleDecimalHour));
-    safeSetText('val-sa-date', res.localDateDialStr);
-    safeSetText('val-std-time', formatHoursToHM(res.standardHours));
-    
+    // Star Adventurer Calculations (Ordered: Lon Offset -> Date -> Standard Time)
     var offsetAbs = Math.abs(res.lonOffset).toFixed(2);
     var offsetDir = res.lonOffset <= 0 ? 'W' : 'E';
     safeSetText('val-lon-offset', offsetAbs + "° " + offsetDir);
+    safeSetText('val-sa-date', res.localDateDialStr);
+    safeSetText('val-std-time', formatHoursToHM(res.standardHours));
+    
+    safeSetText('val-ha', formatHoursToHMS(res.haHours));
+    safeSetText('val-reticle-clock', formatDecimalToClock(res.reticleDecimalHour));
   } catch (err) {
     console.error("Render loop error:", err);
   }
