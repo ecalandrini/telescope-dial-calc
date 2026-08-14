@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Astro Dial Calculator (Auto GPS & TZ)</title>
+  <title>Astro Dial Calculator (Night Mode)</title>
   <style>
     :root {
       --bg: #000000;
@@ -124,10 +124,10 @@
 <body>
 
 <div class="card">
-  <h2>Astro Dial Calculator (Auto GPS)</h2>
+  <h2>Astro Dial Calculator (Night)</h2>
   
-  <button id="gps-btn" onclick="fetchGPSAndTZ()">Sync GPS & Auto-Detect Timezone</button>
-  <div id="status" class="status">Status: Ready to sync</div>
+  <button id="gps-btn" onclick="fetchGPS()">Sync GPS Location</button>
+  <div id="status" class="status">GPS: Using default / device coordinates</div>
 
   <!-- STAR ADVENTURER POLAR SCOPE RETICLE -->
   <h3>Star Adventurer Reticle</h3>
@@ -179,8 +179,8 @@
   <h3>Ephemeris & Coordinates</h3>
   <div class="grid">
     <div class="metric">
-      <div class="metric-label">Detected Time Zone</div>
-      <div class="metric-value" id="val-tz">UTC+1 (Std)</div>
+      <div class="metric-label">Standard Timezone</div>
+      <div class="metric-value" id="val-tz">UTC+1</div>
     </div>
     <div class="metric">
       <div class="metric-label">GPS Longitude</div>
@@ -200,37 +200,22 @@
 <script>
 let userLongitude = -8.69; 
 let userLatitude = 42.24;
-let standardTzOffsetHours = 1.0; // Defaults to UTC+1 for CET
-let detectedTzName = "Auto (Europe/Madrid / UTC+1)";
+let standardTzOffsetHours = 1.0; 
+const POLARIS_RA_HOURS = 2.5302; 
 
-const POLARIS_RA_HOURS = 2.5302; // ~02h 31m 49s
-
-// Determine standard winter offset for a given IANA timezone string using native Intl API
-function getStandardOffsetForZone(timeZoneId) {
+// Extract winter standard offset directly from the device's locale
+function resolveDeviceStandardOffset() {
   try {
-    // January is standard winter time for Northern Hemisphere, July for Southern
-    const testDate = new Date(new Date().getFullYear(), 0, 15);
-    const parts = new Intl.DateTimeFormat('en-US', {
-      timeZone: timeZoneId,
-      timeZoneName: 'shortOffset'
-    }).formatToParts(testDate);
-    
-    const tzPart = parts.find(p => p.type === 'timeZoneName');
-    if (tzPart && tzPart.value.includes('GMT')) {
-      const offsetStr = tzPart.value.replace('GMT', '').trim();
-      if (!offsetStr) return 0;
-      const [h, m] = offsetStr.split(':');
-      const hours = parseFloat(h);
-      const mins = m ? parseFloat(m) / 60 : 0;
-      return hours + (hours < 0 ? -mins : mins);
-    }
+    // Check January standard time offset (winter for Northern Hemisphere)
+    const janDate = new Date(new Date().getFullYear(), 0, 15);
+    const offsetMinutes = -janDate.getTimezoneOffset();
+    return offsetMinutes / 60.0;
   } catch (e) {
-    console.warn("Intl standard offset extraction failed:", e);
+    return 1.0; // Default fallback to UTC+1
   }
-  return null;
 }
 
-async function fetchGPSAndTZ() {
+function fetchGPS() {
   const statusEl = document.getElementById('status');
   if (!navigator.geolocation) {
     statusEl.textContent = "GPS Error: Geolocation unavailable";
@@ -239,50 +224,20 @@ async function fetchGPSAndTZ() {
 
   statusEl.textContent = "Acquiring GPS fix...";
   navigator.geolocation.getCurrentPosition(
-    async (pos) => {
+    (pos) => {
       userLatitude = pos.coords.latitude;
       userLongitude = pos.coords.longitude;
+      standardTzOffsetHours = resolveDeviceStandardOffset();
       
-      statusEl.textContent = `GPS Locked (±${Math.round(pos.coords.accuracy)}m). Identifying Timezone...`;
-      
-      // Attempt automated political reverse timezone lookup from coordinates
-      try {
-        const resp = await fetch(`https://timeapi.io/api/TimeZone/coordinate?latitude=${userLatitude}&longitude=${userLongitude}`);
-        if (resp.ok) {
-          const data = await resp.json();
-          detectedTzName = data.timeZone;
-          // Extract the base standard winter offset
-          const stdOffset = getStandardOffsetForZone(data.timeZone);
-          if (stdOffset !== null) {
-            standardTzOffsetHours = stdOffset;
-          } else {
-            standardTzOffsetHours = (data.standardUtcOffset?.seconds || 3600) / 3600;
-          }
-          statusEl.textContent = `Locked: ${detectedTzName} (Std UTC${standardTzOffsetHours >= 0 ? '+' : ''}${standardTzOffsetHours})`;
-        } else {
-          fallbackToDeviceTz();
-        }
-      } catch (err) {
-        fallbackToDeviceTz();
-      }
-
+      statusEl.textContent = `GPS Locked (±${Math.round(pos.coords.accuracy)}m)`;
       updateCalculations();
     },
     (err) => {
-      statusEl.textContent = `GPS Error: ${err.message}`;
+      statusEl.textContent = `GPS Error: ${err.message}. Using default.`;
+      updateCalculations();
     },
     { enableHighAccuracy: true, timeout: 10000 }
   );
-}
-
-function fallbackToDeviceTz() {
-  const deviceTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-  const stdOffset = getStandardOffsetForZone(deviceTz);
-  if (stdOffset !== null) {
-    standardTzOffsetHours = stdOffset;
-    detectedTzName = `${deviceTz} (Device)`;
-  }
-  document.getElementById('status').textContent = `GPS Locked. Using Device Zone: UTC${standardTzOffsetHours >= 0 ? '+' : ''}${standardTzOffsetHours}`;
 }
 
 function calculateAstronomicalTimes(date, lon, tzOffset) {
@@ -291,7 +246,7 @@ function calculateAstronomicalTimes(date, lon, tzOffset) {
   const D = date.getUTCDate();
   const utHours = date.getUTCHours() + date.getUTCMinutes() / 60 + date.getUTCSeconds() / 3600 + date.getUTCMilliseconds() / 3600000;
 
-  // Julian Date
+  // Julian Date calculation
   let calcY = Y;
   let calcM = M;
   if (calcM <= 2) {
@@ -322,7 +277,7 @@ function calculateAstronomicalTimes(date, lon, tzOffset) {
   let reticleDecimalHour = (haHours / 2) % 12;
   reticleDecimalHour = (12 - reticleDecimalHour) % 12;
 
-  // Standard Time (Standard civil time, UTC + tzOffset, strictly without DST)
+  // Standard Time (Civil standard time, UTC + tzOffset, strictly without DST)
   let standardHours = (utHours + tzOffset) % 24;
   if (standardHours < 0) standardHours += 24;
 
@@ -385,8 +340,8 @@ function updateCalculations() {
   document.getElementById('val-lon-offset').textContent = `${offsetAbs}° ${offsetDir}`;
 }
 
-// Fallback init on load
-fallbackToDeviceTz();
+// Initial setup
+standardTzOffsetHours = resolveDeviceStandardOffset();
 setInterval(updateCalculations, 1000);
 updateCalculations();
 </script>
